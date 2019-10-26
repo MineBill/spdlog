@@ -1,4 +1,4 @@
-project "glfw"
+project "spdlog"
     kind "StaticLib"
     language "C++"
     cppdialect "C++11"
