@@ -2,6 +2,7 @@ project "spdlog"
     kind "StaticLib"
     language "C++"
     cppdialect "C++11"
+    staticruntime "on"
 
     files {
         "src/async.cpp",
@@ -14,6 +15,10 @@ project "spdlog"
 
     includedirs {
         "include"
+    }
+
+    defines {
+        "SPDLOG_COMPILED_LIB"
     }
 
     filter "configurations:Debug"
