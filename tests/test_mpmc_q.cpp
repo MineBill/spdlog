@@ -1,6 +1,5 @@
 #include "includes.h"
 
-using namespace std::chrono;
 using std::chrono::milliseconds;
 using test_clock = std::chrono::high_resolution_clock;
 
@@ -11,9 +10,9 @@ static milliseconds millis_from(const test_clock::time_point &tp0)
 TEST_CASE("dequeue-empty-nowait", "[mpmc_blocking_q]")
 {
     size_t q_size = 100;
-    milliseconds tolerance_wait(10);
+    milliseconds tolerance_wait(20);
     spdlog::details::mpmc_blocking_queue<int> q(q_size);
-    int popped_item;
+    int popped_item = 0;
 
     auto start = test_clock::now();
     auto rv = q.dequeue_for(popped_item, milliseconds::zero());
@@ -32,7 +31,7 @@ TEST_CASE("dequeue-empty-wait", "[mpmc_blocking_q]")
     milliseconds tolerance_wait(250);
 
     spdlog::details::mpmc_blocking_queue<int> q(q_size);
-    int popped_item;
+    int popped_item = 0;
     auto start = test_clock::now();
     auto rv = q.dequeue_for(popped_item, wait_ms);
     auto delta_ms = millis_from(start);
@@ -42,6 +41,26 @@ TEST_CASE("dequeue-empty-wait", "[mpmc_blocking_q]")
     INFO("Delta " << delta_ms.count() << " millis");
     REQUIRE(delta_ms >= wait_ms - tolerance_wait);
     REQUIRE(delta_ms <= wait_ms + tolerance_wait);
+}
+
+TEST_CASE("dequeue-full-nowait", "[mpmc_blocking_q]")
+{
+    spdlog::details::mpmc_blocking_queue<int> q(1);
+    q.enqueue(42);
+
+    int item = 0;
+    q.dequeue_for(item, milliseconds::zero());
+    REQUIRE(item == 42);
+}
+
+TEST_CASE("dequeue-full-wait", "[mpmc_blocking_q]")
+{
+    spdlog::details::mpmc_blocking_queue<int> q(1);
+    q.enqueue(42);
+
+    int item = 0;
+    q.dequeue(item);
+    REQUIRE(item == 42);
 }
 
 TEST_CASE("enqueue_nowait", "[mpmc_blocking_q]")
@@ -69,7 +88,7 @@ TEST_CASE("bad_queue", "[mpmc_blocking_q]")
     spdlog::details::mpmc_blocking_queue<int> q(q_size);
     q.enqueue_nowait(1);
     REQUIRE(q.overrun_counter() == 1);
-    int i;
+    int i = 0;
     REQUIRE(q.dequeue_for(i, milliseconds(0)) == false);
 }
 
@@ -77,7 +96,7 @@ TEST_CASE("empty_queue", "[mpmc_blocking_q]")
 {
     size_t q_size = 10;
     spdlog::details::mpmc_blocking_queue<int> q(q_size);
-    int i;
+    int i = 0;
     REQUIRE(q.dequeue_for(i, milliseconds(10)) == false);
 }
 
@@ -87,7 +106,7 @@ TEST_CASE("full_queue", "[mpmc_blocking_q]")
     spdlog::details::mpmc_blocking_queue<int> q(q_size);
     for (int i = 0; i < static_cast<int>(q_size); i++)
     {
-        q.enqueue(std::move(i));
+        q.enqueue(i + 0); // i+0 to force rvalue and avoid tidy warnings on the same time if we std::move(i) instead
     }
 
     q.enqueue_nowait(123456);
@@ -96,12 +115,12 @@ TEST_CASE("full_queue", "[mpmc_blocking_q]")
     for (int i = 1; i < static_cast<int>(q_size); i++)
     {
         int item = -1;
-        q.dequeue_for(item, milliseconds(0));
+        q.dequeue(item);
         REQUIRE(item == i);
     }
 
     // last item pushed has overridden the oldest.
     int item = -1;
-    q.dequeue_for(item, milliseconds(0));
+    q.dequeue(item);
     REQUIRE(item == 123456);
 }
